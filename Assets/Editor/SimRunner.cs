@@ -241,11 +241,16 @@ namespace DroneSimEditor
             var cam = Camera.main;
             if (cam == null) { Debug.LogWarning("[SimRunner] 找不到主相机,跳过截图"); return; }
 
-            var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
+            // V5:2× 超采样渲染再双线性降采样 —— RenderTexture 路径没有 MSAA,
+            // 直接渲 1280×720 会满屏锯齿;降采样即高质量 AA
+            const int ss = 2;
+            var rt = new RenderTexture(W * ss, H * ss, 24, RenderTextureFormat.ARGB32);
+            var small = new RenderTexture(W, H, 0, RenderTextureFormat.ARGB32);
             var prevActive = RenderTexture.active;
             cam.targetTexture = rt;
-            RenderTexture.active = rt;
             cam.Render();
+            Graphics.Blit(rt, small);
+            RenderTexture.active = small;
 
             var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
             tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
@@ -255,8 +260,10 @@ namespace DroneSimEditor
             RenderTexture.active = prevActive;
             cam.targetTexture = null;
             rt.Release();
+            small.Release();
             Object.DestroyImmediate(tex);
-            Debug.Log($"[SimRunner] 截图已保存: {file}");
+            var e = cam.transform.rotation.eulerAngles;
+            Debug.Log($"[SimRunner] 截图已保存: {file}  cam={cam.transform.position:F1} rot=({e.x:F0},{e.y:F0},{e.z:F0}) fov={cam.fieldOfView:F0}");
         }
 
         static void DumpState(string outDir)

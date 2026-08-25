@@ -55,6 +55,23 @@ namespace DroneSim
             rig.City = go.AddComponent<CityLights>();
             rig.City.Build(root);
 
+            // V5 实景:反射探针(盒式覆盖全场)—— 幕墙/车漆拿到天空与街区反射
+            // (枚举在 UnityEngine.Rendering 下,时间切片枚举名为 ReflectionProbeTimeSlicingMode)
+            var probeGo = new GameObject("ReflectionProbe");
+            probeGo.transform.SetParent(root, false);
+            probeGo.transform.position = new Vector3(0f, 26f, 40f);
+            var probe = probeGo.AddComponent<ReflectionProbe>();
+            probe.mode = UnityEngine.Rendering.ReflectionProbeMode.Realtime;
+            probe.refreshMode = UnityEngine.Rendering.ReflectionProbeRefreshMode.EveryFrame;
+            // timeSlicing 默认 IndividualFaces(逐面分帧刷新),6000.5 运行时无该可写属性
+            probe.size = new Vector3(620f, 110f, 620f);
+            probe.resolution = 128;
+            probe.nearClipPlane = 0.3f;
+            probe.farClipPlane = 800f;
+
+            // V5 实景:云层(程序云贴图公告板,亮度随昼夜环境色)
+            CloudLayer.Build(root);
+
             rig.Weather = go.AddComponent<WeatherSystem>();
             rig.Weather.Setup(go.transform, rig.DayNight.Cam, groundMat);
             return rig;

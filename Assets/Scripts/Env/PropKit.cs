@@ -10,57 +10,36 @@ namespace DroneSim
     /// </summary>
     public static class PropKit
     {
-        static Material glassCache;
 
-        /// <summary>幕墙窗带玻璃(整场共享一份,利于合批)</summary>
-        static Material GlassMat()
-        {
-            if (glassCache == null)
-            {
-                glassCache = new Material(Shader.Find("Standard")) { color = new Color(0.12f, 0.15f, 0.19f) };
-                glassCache.SetFloat("_Glossiness", 0.85f);
-            }
-            return glassCache;
-        }
-
-        /// <summary>参照建筑:立面贴图 + 楼层幕墙窗带 + 基座 + 檐口压顶 + 屋顶设备间/空调外机
-        /// (远景点缀,替换单色方块;窗带为包裹式深色玻璃条,CS 写字楼观感)</summary>
+        /// <summary>参照建筑:幕墙窗格立面(V5 程序贴图,远景可读的真窗格节奏)+
+        /// 4.2m 商业裙楼 + 檐口压顶 + 屋顶空调外机/设备间/水箱/天线。</summary>
         public static Transform Building(Transform parent, Vector3 pos, float w, float h, float d, int variant = -1)
         {
-            if (variant < 0) variant = Mathf.Abs((int)(pos.x * 3f + pos.z)) % 3;
+            if (variant < 0) variant = Mathf.Abs((int)(pos.x * 3f + pos.z)) % 5;
             var root = new GameObject($"Building{variant}");
             root.transform.SetParent(parent, false);
-            root.transform.position = pos + Vector3.up * (h / 2f);
+            // 注意是局部坐标:CityKit 传地块内偏移,模式障碍楼挂原点 ModeRoot 下局部==世界。
+            // 之前误用 .position(世界),15 栋塔楼全被压到世界原点堆叠,街景里一座都看不到
+            root.transform.localPosition = pos + Vector3.up * (h / 2f);
 
             var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
             body.name = "Body";
             body.transform.SetParent(root.transform, false);
             body.transform.localScale = new Vector3(w, h, d);
+            // 幕墙:一格贴图 = 4 窗 × 4 层(窗宽3m/层高3.2m)
             body.GetComponent<Renderer>().material =
-                MaterialLib.Wall(variant, new Vector2(Mathf.Max(w, d) / 3.5f, h / 3.5f));
+                MaterialLib.CurtainWall(variant, new Vector2(w / 12f, h / 12.8f));
 
-            // 基座(首层深色裙边)
+            // 商业裙楼(首层 ~4.2m,深色石材,比主体凸出一线)
             var plinth = GameObject.CreatePrimitive(PrimitiveType.Cube);
             DestroyCol(plinth);
             plinth.name = "Plinth";
             plinth.transform.SetParent(root.transform, false);
-            plinth.transform.localScale = new Vector3(w + 0.16f, 1.1f, d + 0.16f);
-            plinth.transform.localPosition = new Vector3(0f, -h / 2f + 0.55f, 0f);
-            plinth.GetComponent<Renderer>().material = MaterialLib.Roof(new Vector2(3f, 1f));
-
-            // 楼层幕墙窗带(2 层起,每层一条包裹式深色玻璃)
-            int floors = Mathf.Clamp(Mathf.RoundToInt(h / 3.4f), 2, 8);
-            for (int f = 1; f < floors; f++)
-            {
-                float bandY = -h / 2f + 1.1f + f * ((h - 1.1f) / floors);
-                var band = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                DestroyCol(band);
-                band.name = $"WindowBand{f}";
-                band.transform.SetParent(root.transform, false);
-                band.transform.localScale = new Vector3(w + 0.1f, 1.15f, d + 0.1f);
-                band.transform.localPosition = new Vector3(0f, bandY + 0.55f, 0f);
-                band.GetComponent<Renderer>().material = GlassMat();
-            }
+            plinth.transform.localScale = new Vector3(w + 0.5f, 4.2f, d + 0.5f);
+            plinth.transform.localPosition = new Vector3(0f, -h / 2f + 2.1f, 0f);
+            var plinthMat = MaterialLib.Roof(new Vector2(4f, 1.2f));
+            plinthMat.color = new Color(0.30f, 0.29f, 0.28f);
+            plinth.GetComponent<Renderer>().material = plinthMat;
 
             var cornice = GameObject.CreatePrimitive(PrimitiveType.Cube);
             DestroyCol(cornice);
@@ -95,6 +74,28 @@ namespace DroneSim
                 pent.transform.localScale = new Vector3(w * 0.35f, 2.2f, d * 0.35f);
                 pent.transform.localPosition = new Vector3(w * 0.18f, h / 2f + 1.1f, -d * 0.18f);
                 pent.GetComponent<Renderer>().material = MaterialLib.Roof(new Vector2(2f, 2f));
+            }
+
+            if (h > 18f)   // 屋顶水箱
+            {
+                var tank = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                DestroyCol(tank);
+                tank.name = "WaterTank";
+                tank.transform.SetParent(root.transform, false);
+                tank.transform.localScale = new Vector3(2.2f, 1.4f, 2.2f);
+                tank.transform.localPosition = new Vector3(-w * 0.3f, h / 2f + 0.7f, d * 0.28f);
+                tank.GetComponent<Renderer>().material = MaterialLib.Metal(new Color(0.62f, 0.65f, 0.68f), 3f);
+            }
+
+            if (h > 26f)   // 楼顶天线
+            {
+                var ant = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                DestroyCol(ant);
+                ant.name = "Antenna";
+                ant.transform.SetParent(root.transform, false);
+                ant.transform.localScale = new Vector3(0.12f, 3.5f, 0.12f);
+                ant.transform.localPosition = new Vector3(w * 0.05f, h / 2f + 1.9f, -d * 0.1f);
+                ant.GetComponent<Renderer>().material = MaterialLib.Metal(new Color(0.75f, 0.22f, 0.2f), 1f);
             }
             return root.transform;
         }

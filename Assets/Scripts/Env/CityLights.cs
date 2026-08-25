@@ -22,6 +22,7 @@ namespace DroneSim
         }
 
         readonly List<Lit> lits = new List<Lit>(26);
+        readonly List<Material> districtMats = new List<Material>(32);   // 城区幕墙(夜窗发光)
         bool lightsOn;
         float intensity01;
 
@@ -30,14 +31,32 @@ namespace DroneSim
 
         public void Build(Transform parent)
         {
-            // ---- 外围楼群(半径150~215,不干扰演练场) ----
-            for (int i = 0; i < 16; i++)
+            // ---- 城区(要地防御战)存在时:收集其幕墙材质,夜间点亮窗格发光 ----
+            var district = GameObject.Find("CityDistrict");
+            if (district != null)
             {
-                float a = i / 16f * Mathf.PI * 2f + Hash(i) * 0.35f;
-                float r = 150f + Hash(i + 40f) * 65f;
-                float h = 24f + Hash(i + 80f) * 46f;
-                float w = 10f + Hash(i + 120f) * 10f;
+                var em = MaterialLib.FacadeEmissive();
+                foreach (var rend in district.GetComponentsInChildren<Renderer>())
+                {
+                    var mat = rend.material;   // 每楼独立材质实例
+                    if (mat == null || mat.mainTexture != MaterialLib.FacadeTexture()) continue;
+                    mat.EnableKeyword("_EMISSION");
+                    mat.SetTexture("_EmissionMap", em);
+                    mat.SetColor("_EmissionColor", new Color(0f, 0f, 0f));
+                    districtMats.Add(mat);
+                }
+            }
+
+            // ---- 外围楼群(V5:30 栋幕墙楼,半径150~270;城区方向跳过防穿模) ----
+            for (int i = 0; i < 30; i++)
+            {
+                float a = i / 30f * Mathf.PI * 2f + Hash(i) * 0.2f;
+                float r = 150f + Hash(i + 40f) * 120f;
+                float h = 22f + Hash(i + 80f) * 52f;
+                float w = 9f + Hash(i + 120f) * 12f;
                 var pos = new Vector3(Mathf.Cos(a) * r, h / 2f, Mathf.Sin(a) * r);
+                if (district != null && pos.z > 70f && Mathf.Abs(pos.x) < 170f)
+                    continue;   // 北侧城区扇区内不生成,避免与街区穿模
 
                 var tower = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 DestroyCol(tower);
@@ -47,7 +66,7 @@ namespace DroneSim
                 tower.transform.rotation = Quaternion.Euler(0f, Hash(i + 160f) * 90f, 0f);
                 tower.transform.localScale = new Vector3(w, h, w);
                 tower.GetComponent<Renderer>().material =
-                    MaterialLib.Wall(i, new Vector2(w / 3.5f, h / 3.5f));
+                    MaterialLib.CurtainWall((int)(Hash(i + 200f) * 5f), new Vector2(w / 12f, h / 12.8f));
 
                 // 朝场心一面的发光窗带(每楼独立材质,闪烁按楼)
                 int rows = Mathf.Max(2, (int)(h / 9f));
@@ -156,6 +175,14 @@ namespace DroneSim
                     l.Point.intensity = 1.15f * glow;
                     if (l.Point.intensity > MaxPointIntensity) MaxPointIntensity = l.Point.intensity;
                 }
+            }
+
+            // 城区幕墙夜窗:发光贴图 × 暖色强度(帧不发光,只窗格亮)
+            if (districtMats.Count > 0)
+            {
+                var ec = new Color(1f, 0.8f, 0.52f) * (1.7f * intensity01);
+                for (int m = 0; m < districtMats.Count; m++)
+                    districtMats[m].SetColor("_EmissionColor", ec);
             }
         }
 

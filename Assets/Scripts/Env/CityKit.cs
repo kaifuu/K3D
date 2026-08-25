@@ -67,27 +67,139 @@ namespace DroneSim
                 // 街角路灯(每块西南角)
                 StreetKit.LampPost(blockT.transform,
                     new Vector3(-block / 2f - road / 2f + 1.2f, 0f, -block / 2f - road / 2f + 1.2f), 45f);
+
+                // 行道树 ×2(块缘人行道上,哈希选边/位置)
+                for (int e = 0; e < 2; e++)
+                    Tree(blockT.transform, new Vector3(
+                        (Hash01(gx * 7 + e, gz, 12) < 0.5f ? -1f : 1f) * (block / 2f - 1.7f), 0.12f,
+                        (Hash01(gx * 3 + e, gz, 14) - 0.5f) * (block - 7f)),
+                        0.6f + Hash01(gx, gz * 5 + e, 15) * 0.35f);
             }
 
-            // 中央十字路口斑马线 ×4 侧
-            Crosswalk(root.transform, new Vector3(0f, 0.02f, -cell / 2f), 0f);
-            Crosswalk(root.transform, new Vector3(0f, 0.02f, cell / 2f), 0f);
-            Crosswalk(root.transform, new Vector3(-cell / 2f, 0.02f, 0f), 90f);
-            Crosswalk(root.transform, new Vector3(cell / 2f, 0.02f, 0f), 90f);
+            StreetDetails(root.transform, span, cell, road);
+
+            // 中央路口(local 0,0 处道路相交)斑马线 ×4 侧 —— 斑马条长轴沿行人过街方向,
+            // 条带 4.5m 落在路面宽 8m 内,距路口边缘(4m)留 0.9m 缓冲
+            Crosswalk(root.transform, new Vector3(0f, 0.02f, -7.2f), 90f);
+            Crosswalk(root.transform, new Vector3(0f, 0.02f, 7.2f), 90f);
+            Crosswalk(root.transform, new Vector3(-7.2f, 0.02f, 0f), 0f);
+            Crosswalk(root.transform, new Vector3(7.2f, 0.02f, 0f), 0f);
         }
 
         static void BuildCityLot(Transform parent, float block, int gx, int gz)
         {
             // 1~2 栋楼:主楼居中较高 + 副楼角落较矮,高度/贴图变体由哈希定
-            // (V4:加高加胖 —— 14~40m 塔楼才有天际线,远景不再压成一条线)
-            float h1 = 14f + Hash01(gx, gz, 1) * 26f;
-            float h2 = 9f + Hash01(gx, gz, 2) * 12f;
+            // (V5:22~64m 真街谷尺度 —— 16m 机位平视时两侧塔楼出高差天际线)
+            float h1 = 22f + Hash01(gx, gz, 1) * 42f;
+            float h2 = 12f + Hash01(gx, gz, 2) * 16f;
             float lot = block - 6f;
             PropKit.Building(parent, new Vector3(-lot * 0.18f, 0f, -lot * 0.14f),
-                lot * 0.85f, h1, lot * 0.85f, Mathf.RoundToInt(Hash01(gx, gz, 3) * 3f));
+                lot * 0.85f, h1, lot * 0.85f, Mathf.RoundToInt(Hash01(gx, gz, 3) * 4f));
             if (Hash01(gx, gz, 4) > 0.35f)
                 PropKit.Building(parent, new Vector3(lot * 0.3f, 0f, lot * 0.32f),
-                    lot * 0.55f, h2, lot * 0.55f, Mathf.RoundToInt(Hash01(gx, gz, 5) * 3f));
+                    lot * 0.55f, h2, lot * 0.55f, Mathf.RoundToInt(Hash01(gx, gz, 5) * 4f));
+        }
+
+        /// <summary>街道细节(V5 实景):车道中心虚线 ×3 条路/向 + 路缘停车(带接地阴影)。
+        /// 道路在地块间隙 —— local x/z = 0, ±cell(±30);地块中心 ±15/±45 是楼栋中轴,别把线画楼底下。
+        /// 路口(横向道路所在)5.5m 内不断线/不停车。</summary>
+        static void StreetDetails(Transform parent, float span, float cell, float road)
+        {
+            Material dashMat = EnvironmentBuilder.UnlitMat(new Color(0.86f, 0.87f, 0.84f, 0.82f));
+            float half = span / 2f - 3f;
+            bool nearCross(float a)   // 沿线坐标 a 离最近横向道路(0/±cell)是否 <5.5m
+            {
+                float m = Mathf.Abs(Mathf.Abs(a) % cell);
+                return Mathf.Min(m, cell - m) < 5.5f;
+            }
+
+            int carIdx = 0;
+            for (int axis = 0; axis < 2; axis++)          // 0=南北路(沿z) 1=东西路(沿x)
+            foreach (var rpx in new[] { -cell, 0f, cell })
+            {
+                for (float s = -half + 1.5f; s < half; s += 5.6f)        // 虚线 3m/隔 2.6m
+                {
+                    if (nearCross(s)) continue;
+                    var dash = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    DestroyCol(dash);
+                    dash.name = "LaneDash";
+                    dash.transform.SetParent(parent, false);
+                    dash.transform.localScale = axis == 0
+                        ? new Vector3(0.16f, 0.02f, 3f) : new Vector3(3f, 0.02f, 0.16f);
+                    dash.transform.localPosition = axis == 0
+                        ? new Vector3(rpx, 0.025f, s) : new Vector3(s, 0.025f, rpx);
+                    dash.GetComponent<Renderer>().material = dashMat;
+                }
+                for (float s = -half + 3f; s < half; s += 9f)            // 路缘停车
+                {
+                    if (nearCross(s) || Hash01((int)(rpx * 7f), (int)(s * 3f) + axis * 131, 21) < 0.42f)
+                        continue;
+                    float side = Hash01((int)(s * 5f), (int)rpx, 22) < 0.5f ? -1f : 1f;
+                    float off = rpx + side * (road / 2f - 1.45f);
+                    var pos = axis == 0 ? new Vector3(off, 0.01f, s) : new Vector3(s, 0.01f, off);
+                    Car(parent, pos, axis == 0 ? (side < 0f ? 0f : 180f) : (side < 0f ? 90f : 270f), carIdx++);
+                }
+            }
+        }
+
+        /// <summary>路边停放轿车:车身+座舱+四轮+接地阴影(尺度参照物,让街区"像真的")</summary>
+        static void Car(Transform parent, Vector3 pos, float rotY, int idx)
+        {
+            Color[] paints =
+            {
+                new Color(0.85f, 0.86f, 0.87f), new Color(0.62f, 0.65f, 0.69f), new Color(0.15f, 0.16f, 0.18f),
+                new Color(0.58f, 0.09f, 0.09f), new Color(0.13f, 0.24f, 0.5f), new Color(0.74f, 0.7f, 0.56f),
+            };
+            Color paint = paints[Mathf.Abs(idx * 7 + 3) % paints.Length];
+            var root = new GameObject($"ParkedCar{idx}");
+            root.transform.SetParent(parent, false);
+            root.transform.position = pos;
+            root.transform.rotation = Quaternion.Euler(0f, rotY, 0f);
+
+            var bodyMat = new Material(Shader.Find("Standard")) { color = paint };
+            bodyMat.SetFloat("_Glossiness", 0.6f);
+            var glassMat = new Material(Shader.Find("Standard")) { color = new Color(0.08f, 0.1f, 0.13f) };
+            glassMat.SetFloat("_Glossiness", 0.9f);
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            DestroyCol(body);
+            body.name = "Body";
+            body.transform.SetParent(root.transform, false);
+            body.transform.localScale = new Vector3(1.76f, 0.5f, 4.3f);
+            body.transform.localPosition = new Vector3(0f, 0.58f, 0f);
+            body.GetComponent<Renderer>().material = bodyMat;
+
+            var cabin = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            DestroyCol(cabin);
+            cabin.name = "Cabin";
+            cabin.transform.SetParent(root.transform, false);
+            cabin.transform.localScale = new Vector3(1.6f, 0.46f, 2.15f);
+            cabin.transform.localPosition = new Vector3(0f, 1.04f, -0.18f);
+            cabin.GetComponent<Renderer>().material = glassMat;
+
+            Material wheelMat = MaterialLib.Metal(new Color(0.07f, 0.07f, 0.08f), 1f);
+            for (int wl = 0; wl < 4; wl++)
+            {
+                var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                DestroyCol(wheel);
+                wheel.name = $"Wheel{wl}";
+                wheel.transform.SetParent(root.transform, false);
+                wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                wheel.transform.localScale = new Vector3(0.64f, 0.16f, 0.64f);
+                wheel.transform.localPosition = new Vector3(wl % 2 == 0 ? -0.8f : 0.8f, 0.33f, wl < 2 ? 1.35f : -1.35f);
+                wheel.GetComponent<Renderer>().material = wheelMat;
+            }
+
+            // 接地软阴影(半透明贴地四边形)
+            var shadow = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            DestroyCol(shadow);
+            shadow.name = "GroundShadow";
+            shadow.transform.SetParent(root.transform, false);
+            shadow.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            shadow.transform.localScale = new Vector3(2.5f, 4.9f, 1f);
+            shadow.transform.localPosition = new Vector3(0f, 0.03f, 0f);
+            shadow.GetComponent<Renderer>().material =
+                EnvironmentBuilder.UnlitMat(new Color(0f, 0f, 0f, 0.32f));
         }
 
         static void Park(Transform parent, float block, int gx, int gz)

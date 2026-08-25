@@ -22,20 +22,20 @@ namespace DroneSim
 
         public static Light BuildLighting(Transform parent)
         {
-            // 阴影质量(CS 风格实景:全场软阴影 + 2 级联近距锐利)
+            // 阴影质量(V5 实景:全场软阴影 + 4 级联,覆盖到城市天际线 320m)
             QualitySettings.shadows = ShadowQuality.All;
-            QualitySettings.shadowDistance = 170f;
+            QualitySettings.shadowDistance = 320f;
             QualitySettings.shadowResolution = ShadowResolution.VeryHigh;
-            QualitySettings.shadowCascades = 2;
+            QualitySettings.shadowCascades = 4;
 
             var sun = new GameObject("DirectionalLight");
             sun.transform.SetParent(parent, false);
-            sun.transform.rotation = Quaternion.Euler(38f, -24f, 0f);   // 低角度暖阳 → 长影子
+            sun.transform.rotation = Quaternion.Euler(34f, -28f, 0f);   // 更低角度暖阳 → 长影子出体积
             var li = sun.AddComponent<Light>();
             li.type = LightType.Directional;
             li.shadows = LightShadows.Soft;
-            li.color = new Color(1f, 0.93f, 0.8f);
-            li.intensity = 1.18f;
+            li.color = new Color(1f, 0.91f, 0.76f);
+            li.intensity = 1.32f;
             return li;
         }
 

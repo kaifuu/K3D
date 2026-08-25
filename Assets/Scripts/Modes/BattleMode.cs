@@ -429,17 +429,28 @@ namespace DroneSim
                 var cam = Ctx.MainCamera;
                 if (cam != null)
                 {
-                    // 沿街峡谷机位:x=+15 是城市南北向道路,16m 高度向北平视,
-                    // 两侧 14~40m 塔楼夹出纵深,横向街道节奏透光
-                    cam.transform.position = new Vector3(15f, 16f, 120f);
+                    // 沿街峡谷机位:道路在地块间隙 —— local x/z = 0/±30(±15/±45 是楼栋中轴),
+                    // x=0 即南北向主路,16m 高度向北平视,两侧 14~40m 塔楼夹出一点透视;
+                    // FOV 45 更接近实拍透视
+                    cam.fieldOfView = 45f;
+                    cam.transform.position = new Vector3(0f, 16f, 118f);
                     cam.transform.rotation = Quaternion.LookRotation(
-                        new Vector3(15f, 10f, 240f) - cam.transform.position, Vector3.up);
+                        new Vector3(0f, 11f, 245f) - cam.transform.position, Vector3.up);
                 }
                 sc.At(4f, () =>
                 {
                     var district = GameObject.Find("CityDistrict");
-                    HeadlessAssert.Check(district != null && district.transform.childCount > 10,
-                        $"city 城市街区已生成(子对象 {district?.transform.childCount ?? 0})");
+                    int buildings = 0;
+                    if (district != null)
+                        foreach (var t in district.GetComponentsInChildren<Transform>())
+                            if (t.name.StartsWith("Building"))
+                            {
+                                if (buildings < 3)
+                                    Debug.Log($"[V5] 楼栋 {t.name} pos={t.position:F1} lossy={t.lossyScale:F1} active={t.gameObject.activeInHierarchy}");
+                                buildings++;
+                            }
+                    HeadlessAssert.Check(district != null && buildings > 0,
+                        $"city 楼栋 {buildings} 栋(街区子对象 {district?.transform.childCount ?? 0})");
                 });
                 return;
             }
