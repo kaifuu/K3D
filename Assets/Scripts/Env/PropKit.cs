@@ -309,6 +309,7 @@ namespace DroneSim
             beacon.transform.localPosition = new Vector3(0f, height - 0.2f, 0f);
             beacon.GetComponent<Renderer>().material =
                 EnvironmentBuilder.UnlitMat(new Color(1f, 0.25f, 0.15f, 0.95f));   // 障碍警灯(语义色)
+            PropAnim.Blink(beacon.GetComponent<Renderer>(), 0.15f, 0.75f);          // 闪烁(V4 动效)
             return root.transform;
         }
 

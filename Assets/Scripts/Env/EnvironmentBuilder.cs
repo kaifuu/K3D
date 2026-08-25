@@ -310,6 +310,14 @@ namespace DroneSim
                 brace.GetComponent<Renderer>().material = MaterialLib.Metal(new Color(0.38f, 0.41f, 0.45f), 2f);
             }
 
+            // 搜索雷达往复扫掠(V4 动效)
+            var head = new GameObject("RadarHead");
+            head.transform.SetParent(root.transform, false);
+            head.transform.localPosition = new Vector3(0f, 9f, 0f);
+            dish.transform.SetParent(head.transform, false);
+            dish.transform.localPosition = Vector3.zero;
+            PropAnim.Sweep(head.transform, 115f, 13f);
+
             root.AddComponent<RadarStation>();
             return root.transform;
         }

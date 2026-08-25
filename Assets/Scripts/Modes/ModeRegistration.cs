@@ -23,6 +23,7 @@ namespace DroneSim
             ModeManager.Register("tactics", "应急战术处置", () => new TacticsMode());
             ModeManager.Register("fault", "设备故障模拟", () => new FaultMode());
             ModeManager.Register("full", "综合演练与复盘", () => new FullExerciseMode());
+            ModeManager.Register("battle", "要地联合防御战", () => new BattleMode());
         }
     }
 }

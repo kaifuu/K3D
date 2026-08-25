@@ -52,6 +52,47 @@ namespace DroneSim
                 var p = new Vector3(Mathf.Cos(a) * 95.5f, 0f, Mathf.Sin(a) * 95.5f);
                 LampPost(root.transform, p, -a * Mathf.Rad2Deg + 90f);
             }
+
+            // 起降坪边风袋(风向/风感)
+            Windsock(root.transform, new Vector3(27f, 0f, 5f));
+
+            // 远景城市街区(北侧天际线,所有模式可见)
+            CityKit.CityDistrict(root.transform, new Vector3(0f, 0f, 185f), 120f);
+        }
+
+        /// <summary>风袋:杆 + 摆动枢轴 + 橙白相间三节</summary>
+        static void Windsock(Transform parent, Vector3 pos)
+        {
+            var root = new GameObject("Windsock");
+            root.transform.SetParent(parent, false);
+            root.transform.position = pos;
+            Material poleMat = MaterialLib.Metal(new Color(0.75f, 0.77f, 0.8f), 1f);
+
+            var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            DestroyCol(pole);
+            pole.name = "Pole";
+            pole.transform.SetParent(root.transform, false);
+            pole.transform.localScale = new Vector3(0.05f, 1.6f, 0.05f);
+            pole.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+            pole.GetComponent<Renderer>().material = poleMat;
+
+            var pivot = new GameObject("SockPivot");
+            pivot.transform.SetParent(root.transform, false);
+            pivot.transform.localPosition = new Vector3(0f, 3.1f, 0f);
+
+            Color[] bands = { new Color(0.9f, 0.45f, 0.1f), new Color(0.92f, 0.92f, 0.9f), new Color(0.9f, 0.45f, 0.1f) };
+            for (int s = 0; s < 3; s++)
+            {
+                var seg = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                DestroyCol(seg);
+                seg.name = $"Sock{s}";
+                seg.transform.SetParent(pivot.transform, false);
+                seg.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                seg.transform.localScale = new Vector3(0.16f - s * 0.035f, 0.28f, 0.16f - s * 0.035f);
+                seg.transform.localPosition = new Vector3(0.14f + s * 0.56f, 0f, 0f);
+                seg.GetComponent<Renderer>().material = EnvironmentBuilder.FlatMat(bands[s]);
+            }
+            PropAnim.Sway(pivot.transform, 24f, 4.5f);
         }
 
         // ---------- 环形道路 ----------
@@ -340,7 +381,7 @@ namespace DroneSim
         }
 
         // ---------- 路灯 ----------
-        static void LampPost(Transform parent, Vector3 pos, float rotY)
+        public static void LampPost(Transform parent, Vector3 pos, float rotY)
         {
             var root = new GameObject("LampPost");
             root.transform.SetParent(parent, false);

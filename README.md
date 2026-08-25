@@ -2,13 +2,13 @@
 
 **Unity 6000.5.9f1 · Built-in 渲染管线 · IMGUI · legacy Input · C# 9 · 零第三方插件**
 
-一个面向低空无人机训练的 10 模块综合演练平台:从手工飞行到集群编队,从昼夜天气到监管反制,全部场景由代码过程式搭建(仅地面/立面贴图使用 CC0 素材),开箱即 Play,无需场景文件、无需资源包导入。
+一个面向低空无人机训练的 11 模块综合演练平台:从手工飞行到集群编队,从昼夜天气到监管反制、要地防御战,全部场景由代码过程式搭建(仅地面/立面贴图使用 CC0 素材),开箱即 Play,无需场景文件、无需资源包导入。
 
 ![白昼巡航](Docs/Images/env_day_cruise.png)
 
 > 上图:模块 3「昼夜与天气适应」白昼默认帧 —— 38° 低角度暖阳长影子、CC0 混凝土/柏油贴图、环形道路+集装箱堆场+围界等工业风场景陈设,全部由代码生成。
 
-## 功能总览(10 大模块)
+## 功能总览(11 大模块)
 
 | # | 模块 | 内容 |
 |---|---|---|
@@ -22,6 +22,7 @@
 | 8 | 设备故障 | GPS 干扰(定位抖动)/低电量(自动限速)/电机故障(侧倾+停桨+灰烟)/陀螺漂移(偏航),一键解除恢复 |
 | 9 | 演练复盘 | 10Hz 全动态体采样,时间轴 Seek 任意回放,已飞轨迹+全程淡线重绘,Op 事件刻度 |
 | 10 | 监管反制 | 雷达探测+威胁分级+波次来袭,干扰/捕网/激光三类反制,空域阻断与复位 |
+| 11 | 要地防御战 | 部队视角防御战:三波敌机多方向突防,自动炮塔 + 指挥技能(拦截弹幕/EMP 冻结/炮塔超载),基地完整度与战报统计,胜负判定 |
 
 ## 运行方式
 
@@ -44,13 +45,13 @@ bash compile-check.sh
 Unity.exe -batchmode -projectPath . -executeMethod DroneSimEditor.SimRunner.SetupAndCapture \
           -dsMode=env -shots=6,34,78 -logFile Logs/env.log
 
-# 10 模式全量回归批
-bash v3_batch.sh
+# 11 模式全量回归批
+bash v4_batch.sh
 ```
 
-当前状态:**10 模式 EXIT 0 × 10,全平台断言集 74/74 通过**;断言覆盖飞行建立/收敛/避障/故障现象与恢复/天气粒子与雾密度/夜灯/落点误差/复盘帧数等。
+当前状态:**11 模式 EXIT 0 × 11,全平台断言集 83/83 通过**;断言覆盖飞行建立/收敛/避障/故障现象与恢复/天气粒子与雾密度/夜灯/落点误差/复盘帧数/防御战波次与漏防胜负等。
 
-> 注意:`-shots` 的最后时刻之后 SimRunner 会退出,更晚的断言不会触发 —— 做全量覆盖时把采样点拉到剧本末尾(参见 `v3_batch.sh`)。
+> 注意:`-shots` 的最后时刻之后 SimRunner 会退出,更晚的断言不会触发 —— 做全量覆盖时把采样点拉到剧本末尾(参见 `v4_batch.sh`)。
 
 ## 代码结构
 
@@ -58,20 +59,21 @@ bash v3_batch.sh
 Assets/Scripts/
 ├── Core/        PlatformBoot / DrillClock / EventBus / ModeManager / DrillMode / ScenarioRunner / SelfTest
 ├── Env/         EnvironmentRig / EnvironmentBuilder / MaterialLib / StreetKit / PropKit /
-│                DayNightController / WeatherSystem / WindField / CityLights
+│                CityKit / PropAnim / DayNightController / WeatherSystem / WindField / CityLights
 ├── Flight/      FlightBody / PlayerFlightInput / DroneFactory / RotorSpin / FlightAutopilot / RouteFollower
 ├── Route/       RouteData / RouteVisual / WaypointMarker / DeviationGuide
 ├── Recon/       ReconCameraRig / ThermalView / ScanPulse / ScannableTarget / RendererRegistry
 ├── Tactics/     FireSite / SpeakerDeter / IntruderAlert / LinkLoss / SupplyDrop / CivilianTarget
 ├── Formation/   FormationLibrary / FormationController / FormationHandle / ObstacleAvoid
 ├── Combat/      RedIntruderAI / BlueInterceptor / LockVisualizer / InterceptWarningFX
+├── Battle/      BattleUnits(来袭机/防御炮塔/曳光弹)— 要地防御战专用
 ├── Faults/      FaultService / FaultEffects
 ├── Replay/      ReplayService / ReplayPlayer / TrajectoryDrawer
 ├── Regulator/   RegulatorMode / ThreatGrader / SwarmIntercept / SignalBlockFX / RadarStation …
 ├── CameraCtrl/  ChaseCamera / RTSCamera / CameraDirector / CameraShake
 ├── FX/          VFXKit(代码建粒子) / Effects
 ├── UI/          UIRoot / MainMenuUI / DrillControlBar / StatusBar / EventLog / MarkerOverlay / TimelineUI / PanelKit
-└── Modes/       10 个 DrillMode 子类(物件全挂 ModeRoot,切模式整树销毁)
+└── Modes/       11 个 DrillMode 子类(物件全挂 ModeRoot,切模式整树销毁)
 Assets/Resources/Art/Textures/   24 张 CC0 PBR 贴图(双轨:缺图自动回退纯色)
 Assets/Editor/SimRunner.cs       无头批处理入口
 ```
@@ -83,6 +85,7 @@ Assets/Editor/SimRunner.cs       无头批处理入口
 | V1 材质 | CC0 PBR 贴图(混凝土/砖/金属/柏油/土/草,反照率+法线)+ 程序化天空盒 + 昼夜/黄昏/夜晚大气参数 |
 | V2 实物 | 四旋翼无人机(机臂/电机舱/双叶旋翼/云台/滑橇/航空灯)、雷达站、反制炮塔、波纹铁仓库、木托盘物资箱、地面人员、桁架障碍塔、侦察车辆,全部过程式拼装 |
 | V3 场景 | 低角度暖阳+2048 软阴影+2 级联、环形道路(标线/路灯)、围界铁网、集装箱堆场、油桶簇、托盘货物、混凝土护栏、绿篱、楼宇幕墙窗带 |
+| V4 城市与动效 | 4×4 城市街区(楼宇/公园/广场/人行道/斑马线)天际线、国防工事环(沙袋/瞭望塔/蛇腹铁丝网/扫掠探照灯/旗杆);场景动效:雷达往复扫掠、警灯闪烁、风袋摆动、旗帜波动、曳光弹 |
 
 事件语义色(火焰/烟柱/激光/禁区环/轨迹线/警灯)保持 Unlit 自发光,不参与 PBR 光照,确保像素级自动验证稳定。
 
@@ -111,6 +114,10 @@ Assets/Editor/SimRunner.cs       无头批处理入口
 | 监管反制(空域防御) | 综合演练 |
 |---|---|
 | ![反制](Docs/Images/regulator_defense.png) | ![综合](Docs/Images/full_exercise.png) |
+
+| 要地防御战(三波突防+技能反制) | 城市街区(天际线/斑马线/工事环) |
+|---|---|
+| ![要地防御战](Docs/Images/battle_defense.png) | ![城市街区](Docs/Images/city_district.png) |
 
 > 截图均为 `-batchmode` 无头渲染帧,不含 IMGUI 界面(HUD/侧板请在编辑器 Play 查看)。
 
