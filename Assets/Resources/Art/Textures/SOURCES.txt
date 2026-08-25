@@ -1,0 +1,17 @@
+CC0 (Public Domain) 贴图来源记录 — 2026-08-25 下载
+====================================================
+
+Poly Haven (polyhaven.com) — CC0 License:
+  ground_*  = concrete_floor_worn_001 (2K)
+  wallA_*   = concrete_wall_004 (1K)
+  wallB_*   = concrete_wall_008 (1K)
+  metal_*   = metal_plate_02 (1K)
+  asphalt_*= asphalt_02 (1K)
+  dirt_*    = dirt_aerial_02 (1K)
+
+ambientCG (ambientcg.com) — CC0 License:
+  brick_* = Bricks074 (1K, Color/NormalGL/Roughness)
+  grass_* = Grass004  (1K, Color/NormalGL/Roughness)
+
+后缀约定: _d=albedo(sRGB) _n=normal(GL,linear) _r=roughness(linear)
+导入设置由 Assets/Editor/TextureImportFixup.cs 按后缀自动处理。
